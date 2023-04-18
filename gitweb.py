@@ -29,8 +29,8 @@ from webob import Request, Response, exc
 
 log = logging.getLogger(__name__)
 
-class FileWrapper(object):
 
+class FileWrapper(object):
     def __init__(self, fd, content_length):
         self.fd = fd
         self.content_length = content_length
@@ -51,14 +51,17 @@ class FileWrapper(object):
         return data
 
     def __repr__(self):
-        return '<FileWrapper %s len: %s, read: %s>' % (
-                self.fd, self.content_length, self.content_length - self.keep)
+        return '<FileWrapper %s len: %s, read: %s>' % (self.fd, self.content_length, self.content_length - self.keep)
+
 
 class GitRepository(object):
     git_folder_signature = set(['config', 'head', 'info', 'objects', 'refs'])
     commands = ['git-upload-pack', 'git-receive-pack']
 
     def __init__(self, content_path):
+        # 确认 content_path 下有 git_folder_signature 中的所有文件
+        # 意思就是判断 content_path 是不是一个 Git 文件夹
+        # 是就初始化
         files = set([f.lower() for f in os.listdir(content_path)])
         assert self.git_folder_signature.intersection(files) == self.git_folder_signature, content_path
         self.content_path = content_path
@@ -66,7 +69,9 @@ class GitRepository(object):
 
     def inforefs(self, request, environ):
         """WSGI Response producer for HTTP GET Git Smart HTTP /info/refs request."""
+        # 主要逻辑就是处理 get 请求， 返回响应
 
+        # 获取 Git 命令 并判断 命令是否有效
         git_command = request.GET['service']
         if git_command not in self.commands:
             return exc.HTTPMethodNotAllowed()
@@ -79,13 +84,15 @@ class GitRepository(object):
         # if you do add '\n' as part of data, count it.
         smart_server_advert = '# service=%s' % git_command
         try:
+            # 分到子进程处理执行 git 命令
             out = subprocessio.SubprocessIOChunker(
                 r'git %s --stateless-rpc --advertise-refs "%s"' % (git_command[4:], self.content_path),
                 starting_values = [ str(hex(len(smart_server_advert)+4)[2:].rjust(4,'0') + smart_server_advert + '0000') ]
-                )
-        except EnvironmentError, e:
+            )
+        except EnvironmentError as e:
             log.exception(e)
             raise exc.HTTPExpectationFailed()
+        # 返回响应
         resp = Response()
         resp.content_type = 'application/x-%s-advertisement' % str(git_command)
         resp.app_iter = out
@@ -97,11 +104,12 @@ class GitRepository(object):
         Reads commands and data from HTTP POST's body.
         returns an iterator obj with contents of git command's response to stdout
         """
-
+        # 处理 post 请求
         git_command = request.path_info.strip('/')
         if git_command not in self.commands:
             return exc.HTTPMethodNotAllowed()
 
+        # 读取请求信息
         if 'CONTENT_LENGTH' in environ:
             inputstream = FileWrapper(environ['wsgi.input'], request.content_length)
         else:
@@ -111,8 +119,8 @@ class GitRepository(object):
             out = subprocessio.SubprocessIOChunker(
                 r'git %s --stateless-rpc "%s"' % (git_command[4:], self.content_path),
                 inputstream = inputstream
-                )
-        except EnvironmentError, e:
+            )
+        except EnvironmentError as e:
             log.exception(e)
             raise exc.HTTPExpectationFailed()
 
@@ -125,25 +133,26 @@ class GitRepository(object):
         resp.app_iter = out
         return resp
 
-
     def __call__(self, environ, start_response):
         request = Request(environ)
         if request.path_info.startswith('/info/refs'):
             app = self.inforefs
         elif [a for a in self.valid_accepts if a in request.accept]:
+            # 如果前端请求的 request.accept 中有 valid_accepts 中的内容
             app = self.backend
 
         try:
             resp = app(request, environ)
-        except exc.HTTPException, e:
+        except exc.HTTPException as e:
             resp = e
             log.exception(e)
-        except Exception, e:
+        except Exception as e:
             log.exception(e)
             resp = exc.HTTPInternalServerError()
 
         start_response(resp.status, resp.headers.items())
         return resp.app_iter
+
 
 class GitDirectory(object):
 
@@ -187,7 +196,7 @@ class GitDirectory(object):
                         self.pre_clone_hook(content_path, request)
                         subprocess.call(u'git init --quiet --bare "%s"' % content_path, shell=True)
                         self.post_clone_hook(content_path, request)
-                    except exc.HTTPException, e:
+                    except exc.HTTPException as e:
                         return e(environ, start_response)
                     app = self.repository_app(content_path)
                 else:
@@ -195,14 +204,20 @@ class GitDirectory(object):
         return app(environ, start_response)
 
 
-
 def make_app(global_config, content_path='', **local_config):
     if 'content_path' in global_config:
         content_path = global_config['content_path']
     return GitRepository(content_path)
+
 
 def make_dir_app(global_config, content_path='', auto_create=None, **local_config):
     if 'content_path' in global_config:
         content_path = global_config['content_path']
     return GitDirectory(content_path, auto_create=auto_create)
 
+
+if __name__ == "__main__":
+    config = dict(
+        content_path="C:\\Users\\CR\\Desktop\\gua\\projects\\GitWeb"
+    )
+    app = make_dir_app(config)

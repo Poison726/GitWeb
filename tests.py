@@ -13,7 +13,7 @@ def kill(pid):
     try:
         os.kill(pid, signal.SIGKILL)
     except OSError:
-        print 'process %s is not running' % pid
+        print('process %s is not running' % pid)
 
 def get_free_port():
     s = socket.socket()
@@ -35,9 +35,9 @@ auto_create = true
 """
 
 def call(*args, **kwargs):
-    print 'running %r' % ' '.join(args)
+    print('running %r' % ' '.join(args))
     if subprocess.call(args, **kwargs) != 0:
-        print 'error while running command: %s' % ' '.join(args)
+        print('error while running command: %s' % ' '.join(args))
 
 def realpath(*args):
     dirname = os.path.realpath(join(*args))
