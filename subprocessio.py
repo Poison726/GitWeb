@@ -28,6 +28,7 @@ import threading
 import subprocess
 import os
 
+
 class StreamFeeder(threading.Thread):
     """
     Normal writing into pipe-like is blocking once the buffer is filled.
@@ -74,6 +75,7 @@ class StreamFeeder(threading.Thread):
     @property
     def output(self):
         return self.readiface
+
 
 class InputStreamChunker(threading.Thread):
     def __init__(self, source, target, buffer_size, chunk_size):
@@ -134,6 +136,7 @@ class InputStreamChunker(threading.Thread):
         self.EOF.set()
         da.set() # for cases when done but there was no input.
 
+
 class BufferedGenerator():
     '''
     Class behaves as a non-blocking, buffered pipe reader.
@@ -174,7 +177,14 @@ class BufferedGenerator():
             self.worker.data_added.wait(0.2)
         if len(self.data):
             self.worker.keep_reading.set()
-            return bytes(self.data.popleft())
+
+            d = self.data.popleft()
+            print("buffer next data:", d, type(d))
+            if isinstance(d, str):
+                return bytes(d.encode())
+            elif isinstance(d, bytes):
+                return d
+
         elif self.worker.EOF.is_set():
             raise StopIteration
 
@@ -366,9 +376,10 @@ class SubprocessIOChunker():
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         if self.process.poll():
             raise EnvironmentError("Subprocess exited due to an error:\n" + ''.join(self.error))
+        # print('output', self.output)
         return self.output.next()
 
     def throw(self, type, value=None, traceback=None):

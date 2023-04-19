@@ -37,7 +37,7 @@ Here is a simple Paste config file::
 
 Now try::
 
-  git clone . http://localhost:8080/repo.git
+  git clone . http://localhost:3333/GitWeb.git
 
 License
 =======

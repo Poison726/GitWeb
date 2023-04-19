@@ -27,8 +27,8 @@ import subprocess
 import subprocessio
 from webob import Request, Response, exc
 
-log = logging.getLogger(__name__)
-
+logger = logging.getLogger(__name__)
+log = print
 
 class FileWrapper(object):
     def __init__(self, fd, content_length):
@@ -62,6 +62,7 @@ class GitRepository(object):
         # 确认 content_path 下有 git_folder_signature 中的所有文件
         # 意思就是判断 content_path 是不是一个 Git 文件夹
         # 是就初始化
+
         files = set([f.lower() for f in os.listdir(content_path)])
         assert self.git_folder_signature.intersection(files) == self.git_folder_signature, content_path
         self.content_path = content_path
@@ -90,7 +91,7 @@ class GitRepository(object):
                 starting_values = [ str(hex(len(smart_server_advert)+4)[2:].rjust(4,'0') + smart_server_advert + '0000') ]
             )
         except EnvironmentError as e:
-            log.exception(e)
+            logger.exception(e)
             raise exc.HTTPExpectationFailed()
         # 返回响应
         resp = Response()
@@ -121,7 +122,7 @@ class GitRepository(object):
                 inputstream = inputstream
             )
         except EnvironmentError as e:
-            log.exception(e)
+            logger.exception(e)
             raise exc.HTTPExpectationFailed()
 
         if git_command in [u'git-receive-pack']:
@@ -134,6 +135,7 @@ class GitRepository(object):
         return resp
 
     def __call__(self, environ, start_response):
+        logger.info("GitRepository call")
         request = Request(environ)
         if request.path_info.startswith('/info/refs'):
             app = self.inforefs
@@ -145,9 +147,9 @@ class GitRepository(object):
             resp = app(request, environ)
         except exc.HTTPException as e:
             resp = e
-            log.exception(e)
+            logger.exception(e)
         except Exception as e:
-            log.exception(e)
+            logger.exception(e)
             resp = exc.HTTPInternalServerError()
 
         start_response(resp.status, resp.headers.items())
@@ -178,7 +180,9 @@ class GitDirectory(object):
         pass
 
     def __call__(self, environ, start_response):
+        logger.info("GitDirectory call")
         request = Request(environ)
+        logger.info(request)
         repo_name = request.path_info_pop()
         if not repo_name.endswith('.git'):
             return exc.HTTPNotFound()(environ, start_response)
@@ -205,19 +209,21 @@ class GitDirectory(object):
 
 
 def make_app(global_config, content_path='', **local_config):
+    logger.info("make_app")
     if 'content_path' in global_config:
         content_path = global_config['content_path']
     return GitRepository(content_path)
 
 
 def make_dir_app(global_config, content_path='', auto_create=None, **local_config):
+    logger.info("make_dir_app")
     if 'content_path' in global_config:
         content_path = global_config['content_path']
     return GitDirectory(content_path, auto_create=auto_create)
 
 
-if __name__ == "__main__":
-    config = dict(
-        content_path="C:\\Users\\CR\\Desktop\\gua\\projects\\GitWeb"
-    )
-    app = make_dir_app(config)
+# if __name__ == "__main__":
+#     config = dict(
+#         content_path="C:\\Users\\CR\\Desktop\\gua\\projects\\GitWeb"
+#     )
+#     app = make_dir_app(config)

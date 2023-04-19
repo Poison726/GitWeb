@@ -2,5 +2,8 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/GitWeb" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/git:/localhost:3333/GitWeb.git" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/http:/localhost:3333/GitWeb.git" vcs="Git" />
   </component>
 </project>
